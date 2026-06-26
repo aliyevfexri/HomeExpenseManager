@@ -1,0 +1,68 @@
+# Development stack with hot-reload. Everything still runs in Docker.
+# Usage:  docker compose -f docker-compose.dev.yml up
+#   UI (Vite):     http://localhost:5173
+#   API (Express): http://localhost:8080
+# node_modules live in named volumes, so nothing is installed on your host.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hem
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_DB: hem
+    ports:
+      - "5432:5432"
+    volumes:
+      - dev_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hem -d hem"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: node:20-alpine
+    working_dir: /app/backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://hem:devpassword@db:5432/hem
+      JWT_SECRET: dev-secret
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin
+      DEFAULT_CURRENCY: AZN
+      ATTACHMENTS_DIR: /data/attachments
+      PORT: 8080
+      NODE_ENV: development
+    command: sh -c "apk add --no-cache openssl && npm install && npx prisma db push && npm run dev"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app/backend
+      - backend_node_modules:/app/backend/node_modules
+      - dev_attachments:/data/attachments
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app/frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      BACKEND_PROXY: http://backend:8080
+    command: sh -c "npm install && npm run dev -- --host"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app/frontend
+      - frontend_node_modules:/app/frontend/node_modules
+
+volumes:
+  dev_db_data:
+  dev_attachments:
+  backend_node_modules:
+  frontend_node_modules:

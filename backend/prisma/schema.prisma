@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  name         String
+  username     String    @unique
+  passwordHash String
+  isAdmin      Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  payments     Payment[]
+}
+
+model House {
+  id        Int       @id @default(autoincrement())
+  name      String
+  location  String?
+  createdAt DateTime  @default(now())
+
+  payments  Payment[]
+}
+
+model Payment {
+  id         Int             @id @default(autoincrement())
+  house      House           @relation(fields: [houseId], references: [id], onDelete: Cascade)
+  houseId    Int
+  amount     Decimal         @db.Decimal(12, 2)
+  paidOn     DateTime
+  note       String?
+  category   String?
+  status     PaymentStatus   @default(PAID)
+  createdAt  DateTime        @default(now())
+  createdBy  User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdById Int?
+
+  periods     PaymentPeriod[]
+  attachments Attachment[]
+
+  @@index([houseId])
+}
+
+// A single payment can cover several months. One row per covered month.
+model PaymentPeriod {
+  id        Int     @id @default(autoincrement())
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  paymentId Int
+  year      Int
+  month     Int     // 1-12
+
+  @@unique([paymentId, year, month])
+  @@index([year, month])
+}
+
+model Attachment {
+  id         Int      @id @default(autoincrement())
+  payment    Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  paymentId  Int
+  filename   String   // original filename shown to the user
+  storedName String   // name on disk under /data/attachments
+  mime       String
+  size       Int
+  createdAt  DateTime @default(now())
+
+  @@index([paymentId])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+enum PaymentStatus {
+  PAID
+  UNPAID
+}

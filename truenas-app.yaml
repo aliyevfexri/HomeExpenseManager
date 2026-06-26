@@ -1,0 +1,79 @@
+# =============================================================================
+# Home Expense Manager — TrueNAS SCALE "Install via YAML" file
+# =============================================================================
+# HOW TO INSTALL:
+#   Apps -> Discover Apps -> (three-dot menu, top right) -> Install via YAML
+#   Give it a name (e.g. home-expense-manager) and paste THIS whole file.
+#
+# HOW TO CHANGE SETTINGS LATER:
+#   Apps -> select the app -> Edit -> change the values in the "environment:"
+#   sections below -> Save. (Custom YAML apps are configured here, not in a form.)
+#
+# BEFORE YOU INSTALL — edit the lines marked  # <-- CHANGE  :
+#   - the image name (your GHCR image, or a locally-built image — see README)
+#   - POSTGRES_PASSWORD and JWT_SECRET (use long random strings)
+#   - ADMIN_PASSWORD (you log in with this the first time)
+# =============================================================================
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      # ---- Database settings ----
+      POSTGRES_USER: hem
+      POSTGRES_PASSWORD: change-this-db-password      # <-- CHANGE
+      POSTGRES_DB: hem
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hem -d hem"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    # Your published image. After the GitHub Action runs once, use:
+    #   ghcr.io/YOUR_GITHUB_USERNAME/home-expense-manager:latest
+    # If instead you built the image on the TrueNAS shell, use
+    #   home-expense-manager:latest  AND set  pull_policy: never
+    image: ghcr.io/YOUR_GITHUB_USERNAME/home-expense-manager:latest   # <-- CHANGE
+    pull_policy: missing
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # ---- App settings (these are your "core settings") ----
+      # Database connection — keep user/password/db in sync with the db service above.
+      DATABASE_URL: postgresql://hem:change-this-db-password@db:5432/hem  # <-- CHANGE (match password above)
+
+      # Secret used to sign login sessions. Use a long random string.
+      JWT_SECRET: change-this-to-a-long-random-string                    # <-- CHANGE
+
+      # First admin user, created automatically on first run.
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: change-this-admin-password                          # <-- CHANGE
+
+      # Default currency (you can also change it later in the app's Settings page).
+      DEFAULT_CURRENCY: AZN
+
+      NODE_ENV: production
+      PORT: 8080
+    ports:
+      # host:container — open the UI at http://<truenas-ip>:8080
+      # If port 8080 is already used on your NAS, change the left number (e.g. 8095:8080).
+      - "8080:8080"
+    volumes:
+      - attachments:/data/attachments
+
+# Named volumes — TrueNAS creates and persists these automatically (zero config).
+#
+# If you'd rather store data in a dataset you can snapshot/back up, replace the
+# volume lines above with host paths to datasets you create first, e.g.:
+#   app:    volumes: ["/mnt/POOL/apps/hem/attachments:/data/attachments"]
+#   db:     volumes: ["/mnt/POOL/apps/hem/db:/var/lib/postgresql/data"]
+# and delete this "volumes:" block.
+volumes:
+  db_data:
+  attachments:
