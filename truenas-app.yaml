@@ -33,12 +33,10 @@ services:
       retries: 5
 
   app:
-    # Your published image. After the GitHub Action runs once, use:
-    #   ghcr.io/YOUR_GITHUB_USERNAME/home-expense-manager:latest
-    # If instead you built the image on the TrueNAS shell, use
-    #   home-expense-manager:latest  AND set  pull_policy: never
-    image: ghcr.io/YOUR_GITHUB_USERNAME/home-expense-manager:latest   # <-- CHANGE
-    pull_policy: missing
+    # Published image (built by your GitHub Action). The GHCR package must be
+    # set to PUBLIC for TrueNAS to pull it without a login (see README / steps).
+    image: ghcr.io/aliyevfexri/home-expense-manager:latest
+    pull_policy: always
     restart: unless-stopped
     depends_on:
       db:
