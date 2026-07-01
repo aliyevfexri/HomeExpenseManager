@@ -59,9 +59,10 @@ services:
       NODE_ENV: production
       PORT: 8080
     ports:
-      # host:container — open the UI at http://<truenas-ip>:8080
-      # If port 8080 is already used on your NAS, change the left number (e.g. 8095:8080).
-      - "8080:8080"
+      # host:container — open the UI at http://<truenas-ip>:8095
+      # 8095 is used instead of 8080 because TrueNAS's own web UI/nginx commonly
+      # holds 8080. Change the left number again here if 8095 is also taken.
+      - "8095:8080"
     volumes:
       - attachments:/data/attachments
 

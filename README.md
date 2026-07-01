@@ -44,7 +44,7 @@ machine or NAS**; everything is built and run inside containers.
    docker compose up -d --build
    ```
 
-3. Open `http://<host-ip>:8080` and log in with the `ADMIN_USERNAME` / `ADMIN_PASSWORD`
+3. Open `http://<host-ip>:8095` and log in with the `ADMIN_USERNAME` / `ADMIN_PASSWORD`
    you set in `.env`.
 
 That's it. The schema is created automatically on first boot and the admin user is seeded
@@ -89,7 +89,9 @@ TrueNAS SCALE (Electric Eel / 24.10+) runs apps on Docker. Use the dedicated
    passwords, JWT secret).
 2. TrueNAS UI → **Apps → Discover Apps → ⋮ (top-right) → Install via YAML**.
 3. Name it `home-expense-manager`, paste the edited YAML, **Save**.
-4. Open `http://<truenas-ip>:8080` and log in with `ADMIN_USERNAME` / `ADMIN_PASSWORD`.
+4. Open `http://<truenas-ip>:8095` and log in with `ADMIN_USERNAME` / `ADMIN_PASSWORD`.
+   (8095 is used because TrueNAS's own web UI commonly holds 8080 — change the left
+   side of the `ports:` line in `truenas-app.yaml` if 8095 is also taken on your box.)
 
 ### Editing core settings later
 
@@ -108,7 +110,7 @@ under **Settings**, without touching the YAML.)
 2. Compose Manager → **Add New Stack** → name it `home-expense-manager`.
 3. Paste `docker-compose.yml`, and put the variables from `.env.example` into the stack's
    env / `.env`.
-4. **Compose Up**. Open `http://<unraid-ip>:8080`.
+4. **Compose Up**. Open `http://<unraid-ip>:8095`.
 
 (Alternatively, drop this folder onto the array and run `docker compose up -d --build`
 from a terminal.)
@@ -138,7 +140,7 @@ them to bind-mounts under a dataset you already back up).
 | `POSTGRES_USER`    | Database user                                        |
 | `POSTGRES_PASSWORD`| Database password                                    |
 | `POSTGRES_DB`      | Database name                                        |
-| `APP_PORT`         | Port exposed on the host (default 8080)              |
+| `APP_PORT`         | Port exposed on the host (default 8095)              |
 | `JWT_SECRET`       | Secret used to sign login sessions — make it long    |
 | `ADMIN_USERNAME`   | First admin username (created on first run)          |
 | `ADMIN_PASSWORD`   | First admin password (change it after first login)   |
