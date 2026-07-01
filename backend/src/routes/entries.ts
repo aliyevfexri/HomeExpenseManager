@@ -14,6 +14,15 @@ entriesRouter.use(requireAuth);
 
 const includeAtt = { attachments: true };
 
+// A stored file may be referenced by several Attachment rows (one check shared
+// across multiple periods). Only remove the file from disk once no rows use it.
+async function unlinkIfOrphan(storedName: string) {
+  const count = await prisma.attachment.count({ where: { storedName } });
+  if (count === 0) {
+    fs.promises.unlink(path.join(config.attachmentsDir, storedName)).catch(() => {});
+  }
+}
+
 const upsertSchema = z.object({
   paymentTypeId: z.coerce.number().int(),
   periodKey: z.string().min(1),
@@ -100,6 +109,88 @@ entriesRouter.post("/", upload.array("attachments"), async (req, res) => {
   res.status(201).json({ entry: serializeEntry(entry) });
 });
 
+// Apply one payment (amount/status/note + shared attachments) to MANY periods
+// at once. The uploaded file is stored once and referenced by every period.
+const bulkSchema = z.object({
+  paymentTypeId: z.coerce.number().int(),
+  periods: z
+    .array(z.object({ periodKey: z.string().min(1), periodDate: z.string().min(1) }))
+    .min(1),
+  status: z.enum(["PAID", "PARTIAL"]).optional().default("PAID"),
+  amount: z.coerce.number().nonnegative().nullable().optional(),
+  note: z.string().nullable().optional(),
+  paidOn: z.string().nullable().optional(),
+});
+
+entriesRouter.post("/bulk", upload.array("attachments"), async (req, res) => {
+  const raw = { ...req.body };
+  if (typeof raw.periods === "string") {
+    try {
+      raw.periods = JSON.parse(raw.periods);
+    } catch {
+      return res.status(400).json({ error: "Invalid periods" });
+    }
+  }
+  const parsed = bulkSchema.safeParse(raw);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
+  const d = parsed.data;
+
+  const type = await prisma.paymentType.findUnique({ where: { id: d.paymentTypeId } });
+  if (!type) return res.status(400).json({ error: "Payment type not found" });
+
+  const files = (req.files as Express.Multer.File[]) || [];
+  const amount =
+    d.amount !== undefined && d.amount !== null
+      ? d.amount
+      : type.defaultAmount != null
+      ? Number(type.defaultAmount)
+      : null;
+  const paidOn = d.paidOn ? new Date(d.paidOn) : new Date();
+
+  // Every period gets Attachment rows pointing at the same stored file(s).
+  const attachmentData = files.map((f) => ({
+    filename: f.originalname,
+    storedName: f.filename,
+    mime: f.mimetype,
+    size: f.size,
+  }));
+
+  for (const p of d.periods) {
+    const existing = await prisma.paymentEntry.findUnique({
+      where: {
+        paymentTypeId_periodKey: { paymentTypeId: d.paymentTypeId, periodKey: p.periodKey },
+      },
+    });
+    if (existing) {
+      await prisma.paymentEntry.update({
+        where: { id: existing.id },
+        data: {
+          status: d.status,
+          amount,
+          note: d.note ?? undefined,
+          paidOn,
+          attachments: { create: attachmentData },
+        },
+      });
+    } else {
+      await prisma.paymentEntry.create({
+        data: {
+          paymentTypeId: d.paymentTypeId,
+          periodKey: p.periodKey,
+          periodDate: new Date(p.periodDate),
+          status: d.status,
+          amount,
+          note: d.note ?? null,
+          paidOn,
+          createdById: req.user!.id,
+          attachments: { create: attachmentData },
+        },
+      });
+    }
+  }
+  res.status(201).json({ ok: true, count: d.periods.length });
+});
+
 const patchSchema = z.object({
   status: z.enum(["PAID", "PARTIAL"]).optional(),
   amount: z.coerce.number().nonnegative().nullable().optional(),
@@ -140,10 +231,10 @@ entriesRouter.delete("/:id", async (req, res) => {
     include: { attachments: true },
   });
   if (!entry) return res.status(404).json({ error: "Entry not found" });
-  for (const a of entry.attachments) {
-    fs.promises.unlink(path.join(config.attachmentsDir, a.storedName)).catch(() => {});
-  }
+  const storedNames = entry.attachments.map((a) => a.storedName);
   await prisma.paymentEntry.delete({ where: { id } });
+  // After the cascade delete, drop files that no other entry still references.
+  for (const s of new Set(storedNames)) await unlinkIfOrphan(s);
   res.json({ ok: true });
 });
 
@@ -179,7 +270,7 @@ entriesRouter.get("/attachments/:attId/download", async (req, res) => {
 entriesRouter.delete("/attachments/:attId", async (req, res) => {
   const att = await prisma.attachment.findUnique({ where: { id: Number(req.params.attId) } });
   if (!att) return res.status(404).json({ error: "Not found" });
-  fs.promises.unlink(path.join(config.attachmentsDir, att.storedName)).catch(() => {});
   await prisma.attachment.delete({ where: { id: att.id } });
+  await unlinkIfOrphan(att.storedName);
   res.json({ ok: true });
 });

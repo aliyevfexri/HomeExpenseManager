@@ -61,7 +61,11 @@ backupRouter.get("/export", async (_req, res) => {
 
   archive.append(JSON.stringify(data, null, 2), { name: "data.json" });
 
+  // A file can be shared by several attachment rows — add each file only once.
+  const seen = new Set<string>();
   for (const a of attachments) {
+    if (seen.has(a.storedName)) continue;
+    seen.add(a.storedName);
     const fp = path.join(config.attachmentsDir, a.storedName);
     if (fs.existsSync(fp)) archive.file(fp, { name: `files/${a.storedName}` });
   }

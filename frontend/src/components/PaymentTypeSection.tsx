@@ -4,6 +4,7 @@ import {
   Group,
   Text,
   Badge,
+  Button,
   NumberInput,
   Select,
   SimpleGrid,
@@ -21,6 +22,7 @@ import {
   IconCheck,
   IconPaperclip,
   IconPencil,
+  IconStack2,
 } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { modals } from "@mantine/modals";
@@ -34,6 +36,7 @@ import {
   PeriodCell,
 } from "../periods";
 import EntryModal from "./EntryModal";
+import BulkEntryModal from "./BulkEntryModal";
 
 interface Props {
   type: PaymentType;
@@ -59,6 +62,7 @@ export default function PaymentTypeSection({ type, onEditType, onDeleted, onData
   const [modalCell, setModalCell] = useState<PeriodCell | null>(null);
   const [modalEntry, setModalEntry] = useState<PaymentEntry | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -207,9 +211,19 @@ export default function PaymentTypeSection({ type, onEditType, onDeleted, onData
             />
           )}
         </Group>
-        <Text size="sm" c="dimmed">
-          Total: <b>{money(rangeTotal)}</b>
-        </Text>
+        <Group gap="sm">
+          <Button
+            size="xs"
+            variant="light"
+            leftSection={<IconStack2 size={14} />}
+            onClick={() => setBulkOpen(true)}
+          >
+            Add to multiple
+          </Button>
+          <Text size="sm" c="dimmed">
+            Total: <b>{money(rangeTotal)}</b>
+          </Text>
+        </Group>
       </Group>
 
       {loading ? (
@@ -302,6 +316,18 @@ export default function PaymentTypeSection({ type, onEditType, onDeleted, onData
         cell={modalCell}
         entry={modalEntry}
         periodLabel={modalCell ? periodLabel(modalCell) : ""}
+      />
+
+      <BulkEntryModal
+        opened={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        onSaved={() => {
+          load();
+          onDataChanged();
+        }}
+        type={type}
+        initialYear={year}
+        initialMonth={month}
       />
     </Card>
   );

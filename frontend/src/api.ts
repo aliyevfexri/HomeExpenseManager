@@ -143,6 +143,8 @@ export const api = {
   // entries
   upsertEntry: (form: FormData) =>
     request<{ entry: PaymentEntry }>("/api/entries", { method: "POST", body: form }),
+  bulkUpsert: (form: FormData) =>
+    request<{ ok: boolean; count: number }>("/api/entries/bulk", { method: "POST", body: form }),
   updateEntry: (
     id: number,
     data: { status?: EntryStatus; amount?: number | null; note?: string | null; paidOn?: string | null }
