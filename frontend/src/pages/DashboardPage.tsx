@@ -16,25 +16,25 @@ import {
 } from "@mantine/core";
 import { BarChart } from "@mantine/charts";
 import { IconCash, IconBuildingCommunity, IconCalendar } from "@tabler/icons-react";
-import { api, Summary, Payment } from "../api";
+import { api, Summary, RecentEntry } from "../api";
 import { MONTHS, useMoney } from "../context";
 
 export default function DashboardPage() {
   const money = useMoney();
   const year = new Date().getFullYear();
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [recent, setRecent] = useState<Payment[]>([]);
+  const [recent, setRecent] = useState<RecentEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [summary, { payments }] = await Promise.all([
+        const [summary, { recent }] = await Promise.all([
           api.summary({ year }),
-          api.listPayments({}),
+          api.recent(),
         ]);
         setSummary(summary);
-        setRecent(payments.slice(0, 8));
+        setRecent(recent);
       } finally {
         setLoading(false);
       }
@@ -118,34 +118,35 @@ export default function DashboardPage() {
 
         <Card withBorder>
           <Text fw={500} mb="sm">
-            Recent payments
+            Recent activity
           </Text>
           {recent.length === 0 ? (
-            <Text c="dimmed">No payments yet.</Text>
+            <Text c="dimmed">Nothing recorded yet.</Text>
           ) : (
             <Stack gap="xs">
-              {recent.map((p) => (
-                <Group key={p.id} justify="space-between" wrap="nowrap">
-                  <div style={{ minWidth: 0 }}>
-                    <Text size="sm" truncate>
-                      {p.house?.name} · {p.category || "Payment"}
-                    </Text>
-                    <Group gap={4}>
-                      {p.periods.slice(0, 3).map((pp) => (
-                        <Badge key={`${pp.year}-${pp.month}`} size="xs" variant="light">
-                          {MONTHS[pp.month - 1].slice(0, 3)} {pp.year}
-                        </Badge>
-                      ))}
-                      {p.periods.length > 3 && (
+              {recent.map((r) => {
+                const d = new Date(r.periodDate);
+                return (
+                  <Group key={r.id} justify="space-between" wrap="nowrap">
+                    <div style={{ minWidth: 0 }}>
+                      <Text size="sm" truncate>
+                        {r.houseName} · {r.typeName}
+                      </Text>
+                      <Group gap={4}>
                         <Badge size="xs" variant="light">
-                          +{p.periods.length - 3}
+                          {MONTHS[d.getUTCMonth()].slice(0, 3)} {d.getUTCFullYear()}
                         </Badge>
-                      )}
-                    </Group>
-                  </div>
-                  <Text fw={600}>{money(p.amount)}</Text>
-                </Group>
-              ))}
+                        {r.status === "PARTIAL" && (
+                          <Badge size="xs" variant="light" color="orange">
+                            partial
+                          </Badge>
+                        )}
+                      </Group>
+                    </div>
+                    <Text fw={600}>{r.amount != null ? money(r.amount) : "—"}</Text>
+                  </Group>
+                );
+              })}
             </Stack>
           )}
         </Card>

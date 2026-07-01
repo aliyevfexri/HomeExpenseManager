@@ -10,7 +10,7 @@ housesRouter.use(requireAuth);
 housesRouter.get("/", async (_req, res) => {
   const houses = await prisma.house.findMany({
     orderBy: { name: "asc" },
-    include: { _count: { select: { payments: true } } },
+    include: { _count: { select: { paymentTypes: true } } },
   });
   res.json({
     houses: houses.map((h) => ({
@@ -18,7 +18,7 @@ housesRouter.get("/", async (_req, res) => {
       name: h.name,
       location: h.location,
       createdAt: h.createdAt,
-      paymentCount: h._count.payments,
+      typeCount: h._count.paymentTypes,
     })),
   });
 });

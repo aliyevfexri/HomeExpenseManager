@@ -18,11 +18,11 @@ const EXPORT_VERSION = 1;
 
 // ---- Export: stream a .zip containing data.json + every attachment file ----
 backupRouter.get("/export", async (_req, res) => {
-  const [users, houses, payments, periods, attachments, settings] = await Promise.all([
+  const [users, houses, paymentTypes, entries, attachments, settings] = await Promise.all([
     prisma.user.findMany(),
     prisma.house.findMany(),
-    prisma.payment.findMany(),
-    prisma.paymentPeriod.findMany(),
+    prisma.paymentType.findMany(),
+    prisma.paymentEntry.findMany(),
     prisma.attachment.findMany(),
     prisma.setting.findMany(),
   ]);
@@ -32,13 +32,18 @@ backupRouter.get("/export", async (_req, res) => {
     exportedAt: new Date().toISOString(),
     users: users.map((u) => ({ ...u, createdAt: u.createdAt.toISOString() })),
     houses: houses.map((h) => ({ ...h, createdAt: h.createdAt.toISOString() })),
-    payments: payments.map((p) => ({
-      ...p,
-      amount: Number(p.amount),
-      paidOn: p.paidOn.toISOString(),
-      createdAt: p.createdAt.toISOString(),
+    paymentTypes: paymentTypes.map((t) => ({
+      ...t,
+      defaultAmount: t.defaultAmount != null ? Number(t.defaultAmount) : null,
+      createdAt: t.createdAt.toISOString(),
     })),
-    periods,
+    entries: entries.map((e) => ({
+      ...e,
+      amount: e.amount != null ? Number(e.amount) : null,
+      periodDate: e.periodDate.toISOString(),
+      paidOn: e.paidOn ? e.paidOn.toISOString() : null,
+      createdAt: e.createdAt.toISOString(),
+    })),
     attachments: attachments.map((a) => ({ ...a, createdAt: a.createdAt.toISOString() })),
     settings,
   };
@@ -93,8 +98,8 @@ backupRouter.post("/import", uploadZip.single("backup"), async (req, res) => {
     await prisma.$transaction(async (tx) => {
       // Wipe (order matters for FKs, though cascades cover most).
       await tx.attachment.deleteMany();
-      await tx.paymentPeriod.deleteMany();
-      await tx.payment.deleteMany();
+      await tx.paymentEntry.deleteMany();
+      await tx.paymentType.deleteMany();
       await tx.house.deleteMany();
       await tx.user.deleteMany();
       await tx.setting.deleteMany();
@@ -121,31 +126,39 @@ backupRouter.post("/import", uploadZip.single("backup"), async (req, res) => {
           },
         });
 
-      for (const p of data.payments ?? [])
-        await tx.payment.create({
+      for (const t of data.paymentTypes ?? [])
+        await tx.paymentType.create({
           data: {
-            id: p.id,
-            houseId: p.houseId,
-            amount: p.amount,
-            paidOn: new Date(p.paidOn),
-            note: p.note,
-            category: p.category,
-            status: p.status,
-            createdById: p.createdById,
-            createdAt: new Date(p.createdAt),
+            id: t.id,
+            houseId: t.houseId,
+            name: t.name,
+            frequency: t.frequency,
+            defaultAmount: t.defaultAmount,
+            createdAt: new Date(t.createdAt),
           },
         });
 
-      for (const pp of data.periods ?? [])
-        await tx.paymentPeriod.create({
-          data: { id: pp.id, paymentId: pp.paymentId, year: pp.year, month: pp.month },
+      for (const e of data.entries ?? [])
+        await tx.paymentEntry.create({
+          data: {
+            id: e.id,
+            paymentTypeId: e.paymentTypeId,
+            periodKey: e.periodKey,
+            periodDate: new Date(e.periodDate),
+            status: e.status,
+            amount: e.amount,
+            note: e.note,
+            paidOn: e.paidOn ? new Date(e.paidOn) : null,
+            createdById: e.createdById,
+            createdAt: new Date(e.createdAt),
+          },
         });
 
       for (const a of data.attachments ?? [])
         await tx.attachment.create({
           data: {
             id: a.id,
-            paymentId: a.paymentId,
+            entryId: a.entryId,
             filename: a.filename,
             storedName: a.storedName,
             mime: a.mime,
@@ -158,7 +171,7 @@ backupRouter.post("/import", uploadZip.single("backup"), async (req, res) => {
         await tx.setting.create({ data: { key: s.key, value: s.value } });
 
       // Reset autoincrement sequences so future inserts don't collide.
-      for (const table of ["User", "House", "Payment", "PaymentPeriod", "Attachment"]) {
+      for (const table of ["User", "House", "PaymentType", "PaymentEntry", "Attachment"]) {
         await tx.$executeRawUnsafe(
           `SELECT setval(pg_get_serial_sequence('"${table}"', 'id'), COALESCE((SELECT MAX(id) FROM "${table}"), 1))`
         );

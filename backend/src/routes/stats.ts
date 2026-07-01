@@ -6,60 +6,60 @@ export const statsRouter = Router();
 
 statsRouter.use(requireAuth);
 
-// We allocate each payment evenly across the months it covers, so a single
-// check that spans Jan+Feb+Mar contributes 1/3 of its amount to each month.
-// This keeps monthly and yearly totals consistent with the total paid.
+// Each PaymentEntry belongs to one period (its periodDate). We aggregate the
+// recorded amount by the period's year/month. Entries with no amount count as 0.
+
+function amountOf(e: { amount: any }) {
+  return e.amount != null ? Number(e.amount) : 0;
+}
 
 statsRouter.get("/years", async (_req, res) => {
-  const rows = await prisma.paymentPeriod.findMany({
-    distinct: ["year"],
-    select: { year: true },
-    orderBy: { year: "desc" },
-  });
-  res.json({ years: rows.map((r) => r.year) });
+  const entries = await prisma.paymentEntry.findMany({ select: { periodDate: true } });
+  const years = [...new Set(entries.map((e) => e.periodDate.getUTCFullYear()))].sort(
+    (a, b) => b - a
+  );
+  res.json({ years });
 });
 
 statsRouter.get("/summary", async (req, res) => {
   const year = req.query.year ? Number(req.query.year) : undefined;
   const houseId = req.query.houseId ? Number(req.query.houseId) : undefined;
 
-  const payments = await prisma.payment.findMany({
-    where: { houseId },
-    include: { periods: true, house: true },
+  const entries = await prisma.paymentEntry.findMany({
+    where: { paymentType: houseId ? { houseId } : undefined },
+    include: { paymentType: { include: { house: true } } },
   });
 
-  const byMonth = new Array(12).fill(0); // index 0 = January
+  const byMonth = new Array(12).fill(0);
   const byHouse = new Map<number, { id: number; name: string; total: number }>();
   const byYear = new Map<number, number>();
   let yearTotal = 0;
   let grandTotal = 0;
 
-  for (const p of payments) {
-    const amount = Number(p.amount);
-    const count = p.periods.length || 1;
-    const per = amount / count;
+  for (const e of entries) {
+    const amt = amountOf(e);
+    const y = e.periodDate.getUTCFullYear();
+    const m = e.periodDate.getUTCMonth(); // 0-11
+    const house = e.paymentType.house;
 
-    for (const period of p.periods) {
-      byYear.set(period.year, (byYear.get(period.year) || 0) + per);
-      grandTotal += per;
+    byYear.set(y, (byYear.get(y) || 0) + amt);
+    grandTotal += amt;
 
-      if (year && period.year === year) {
-        byMonth[period.month - 1] += per;
-        yearTotal += per;
-        const h = byHouse.get(p.houseId) || { id: p.houseId, name: p.house.name, total: 0 };
-        h.total += per;
-        byHouse.set(p.houseId, h);
-      } else if (!year) {
-        const h = byHouse.get(p.houseId) || { id: p.houseId, name: p.house.name, total: 0 };
-        h.total += per;
-        byHouse.set(p.houseId, h);
+    const inScope = !year || y === year;
+    if (inScope) {
+      if (year) {
+        byMonth[m] += amt;
+        yearTotal += amt;
       }
+      const h = byHouse.get(house.id) || { id: house.id, name: house.name, total: 0 };
+      h.total += amt;
+      byHouse.set(house.id, h);
     }
   }
 
   res.json({
     year: year ?? null,
-    yearTotal: year ? round(yearTotal) : round(grandTotal),
+    yearTotal: round(year ? yearTotal : grandTotal),
     grandTotal: round(grandTotal),
     byMonth: byMonth.map((v, i) => ({ month: i + 1, total: round(v) })),
     byHouse: [...byHouse.values()]
@@ -68,6 +68,26 @@ statsRouter.get("/summary", async (req, res) => {
     byYear: [...byYear.entries()]
       .map(([y, total]) => ({ year: y, total: round(total) }))
       .sort((a, b) => a.year - b.year),
+  });
+});
+
+// Most recent entries for the dashboard.
+statsRouter.get("/recent", async (_req, res) => {
+  const entries = await prisma.paymentEntry.findMany({
+    include: { paymentType: { include: { house: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 8,
+  });
+  res.json({
+    recent: entries.map((e) => ({
+      id: e.id,
+      typeName: e.paymentType.name,
+      houseId: e.paymentType.houseId,
+      houseName: e.paymentType.house.name,
+      periodDate: e.periodDate,
+      status: e.status,
+      amount: e.amount != null ? Number(e.amount) : null,
+    })),
   });
 });
 

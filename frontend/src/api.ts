@@ -13,12 +13,7 @@ export interface House {
   name: string;
   location?: string | null;
   createdAt?: string;
-  paymentCount?: number;
-}
-
-export interface Period {
-  year: number;
-  month: number;
+  typeCount?: number;
 }
 
 export interface Attachment {
@@ -28,19 +23,40 @@ export interface Attachment {
   size: number;
 }
 
-export interface Payment {
+export type Frequency = "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
+export type EntryStatus = "PAID" | "PARTIAL";
+
+export interface PaymentType {
   id: number;
   houseId: number;
-  house?: { id: number; name: string };
-  amount: number;
-  paidOn: string;
+  name: string;
+  frequency: Frequency;
+  defaultAmount: number | null;
+  createdAt?: string;
+  entryCount?: number;
+}
+
+export interface PaymentEntry {
+  id: number;
+  paymentTypeId: number;
+  periodKey: string;
+  periodDate: string;
+  status: EntryStatus;
+  amount: number | null;
   note?: string | null;
-  category?: string | null;
-  status: "PAID" | "UNPAID";
+  paidOn?: string | null;
   createdAt: string;
-  createdBy?: { id: number; name: string } | null;
-  periods: Period[];
   attachments: Attachment[];
+}
+
+export interface RecentEntry {
+  id: number;
+  typeName: string;
+  houseId: number;
+  houseName: string;
+  periodDate: string;
+  status: EntryStatus;
+  amount: number | null;
 }
 
 export interface Summary {
@@ -107,30 +123,42 @@ export const api = {
     json<{ house: House }>(`/api/houses/${id}`, "PUT", data),
   deleteHouse: (id: number) => json(`/api/houses/${id}`, "DELETE"),
 
-  // payments
-  listPayments: (params: { houseId?: number; year?: number; month?: number } = {}) => {
-    const qs = new URLSearchParams();
-    if (params.houseId) qs.set("houseId", String(params.houseId));
-    if (params.year) qs.set("year", String(params.year));
-    if (params.month) qs.set("month", String(params.month));
-    const q = qs.toString();
-    return request<{ payments: Payment[] }>(`/api/payments${q ? `?${q}` : ""}`);
-  },
-  createPayment: (form: FormData) =>
-    request<{ payment: Payment }>("/api/payments", { method: "POST", body: form }),
-  updatePayment: (id: number, data: any) =>
-    json<{ payment: Payment }>(`/api/payments/${id}`, "PUT", data),
-  deletePayment: (id: number) => json(`/api/payments/${id}`, "DELETE"),
-  addAttachments: (id: number, form: FormData) =>
-    request<{ payment: Payment }>(`/api/payments/${id}/attachments`, {
+  // payment types
+  listTypes: (houseId: number) =>
+    request<{ paymentTypes: PaymentType[] }>(`/api/payment-types?houseId=${houseId}`),
+  createType: (data: {
+    houseId: number;
+    name: string;
+    frequency: Frequency;
+    defaultAmount: number | null;
+  }) => json<{ paymentType: PaymentType }>("/api/payment-types", "POST", data),
+  updateType: (
+    id: number,
+    data: { name?: string; frequency?: Frequency; defaultAmount?: number | null }
+  ) => json<{ paymentType: PaymentType }>(`/api/payment-types/${id}`, "PUT", data),
+  deleteType: (id: number) => json(`/api/payment-types/${id}`, "DELETE"),
+  listEntries: (typeId: number, year: number) =>
+    request<{ entries: PaymentEntry[] }>(`/api/payment-types/${typeId}/entries?year=${year}`),
+
+  // entries
+  upsertEntry: (form: FormData) =>
+    request<{ entry: PaymentEntry }>("/api/entries", { method: "POST", body: form }),
+  updateEntry: (
+    id: number,
+    data: { status?: EntryStatus; amount?: number | null; note?: string | null; paidOn?: string | null }
+  ) => json<{ entry: PaymentEntry }>(`/api/entries/${id}`, "PUT", data),
+  deleteEntry: (id: number) => json(`/api/entries/${id}`, "DELETE"),
+  addEntryAttachments: (id: number, form: FormData) =>
+    request<{ entry: PaymentEntry }>(`/api/entries/${id}/attachments`, {
       method: "POST",
       body: form,
     }),
-  deleteAttachment: (attId: number) => json(`/api/payments/attachments/${attId}`, "DELETE"),
-  attachmentUrl: (attId: number) => `/api/payments/attachments/${attId}/download`,
+  deleteAttachment: (attId: number) => json(`/api/entries/attachments/${attId}`, "DELETE"),
+  attachmentUrl: (attId: number) => `/api/entries/attachments/${attId}/download`,
 
   // stats
   years: () => request<{ years: number[] }>("/api/stats/years"),
+  recent: () => request<{ recent: RecentEntry[] }>("/api/stats/recent"),
   summary: (params: { year?: number; houseId?: number } = {}) => {
     const qs = new URLSearchParams();
     if (params.year) qs.set("year", String(params.year));

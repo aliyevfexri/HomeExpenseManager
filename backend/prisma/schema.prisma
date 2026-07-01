@@ -15,7 +15,7 @@ model User {
   isAdmin      Boolean   @default(false)
   createdAt    DateTime  @default(now())
 
-  payments     Payment[]
+  entries      PaymentEntry[]
 }
 
 model House {
@@ -24,51 +24,60 @@ model House {
   location  String?
   createdAt DateTime  @default(now())
 
-  payments  Payment[]
+  paymentTypes PaymentType[]
 }
 
-model Payment {
-  id         Int             @id @default(autoincrement())
-  house      House           @relation(fields: [houseId], references: [id], onDelete: Cascade)
-  houseId    Int
-  amount     Decimal         @db.Decimal(12, 2)
-  paidOn     DateTime
-  note       String?
-  category   String?
-  status     PaymentStatus   @default(PAID)
-  createdAt  DateTime        @default(now())
-  createdBy  User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  createdById Int?
+// A recurring bill for a house, e.g. "Electricity" billed MONTHLY with a
+// default amount. The frequency drives which period cells are shown.
+model PaymentType {
+  id            Int       @id @default(autoincrement())
+  house         House     @relation(fields: [houseId], references: [id], onDelete: Cascade)
+  houseId       Int
+  name          String
+  frequency     Frequency @default(MONTHLY)
+  defaultAmount Decimal?  @db.Decimal(12, 2)
+  createdAt     DateTime  @default(now())
 
-  periods     PaymentPeriod[]
-  attachments Attachment[]
+  entries       PaymentEntry[]
 
   @@index([houseId])
 }
 
-// A single payment can cover several months. One row per covered month.
-model PaymentPeriod {
-  id        Int     @id @default(autoincrement())
-  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  paymentId Int
-  year      Int
-  month     Int     // 1-12
+// A single period of a payment type that has been marked paid / partial.
+// The absence of an entry for a period means "unpaid". periodKey is a
+// frequency-specific identifier: "2026-03" (monthly), "2026" (yearly),
+// "2026-W12" (weekly), "2026-03-15" (daily).
+model PaymentEntry {
+  id            Int         @id @default(autoincrement())
+  paymentType   PaymentType @relation(fields: [paymentTypeId], references: [id], onDelete: Cascade)
+  paymentTypeId Int
+  periodKey     String
+  periodDate    DateTime    // start of the period, used for sorting & stats
+  status        EntryStatus @default(PAID)
+  amount        Decimal?    @db.Decimal(12, 2)
+  note          String?
+  paidOn        DateTime?
+  createdAt     DateTime    @default(now())
+  createdBy     User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdById   Int?
 
-  @@unique([paymentId, year, month])
-  @@index([year, month])
+  attachments   Attachment[]
+
+  @@unique([paymentTypeId, periodKey])
+  @@index([paymentTypeId])
 }
 
 model Attachment {
-  id         Int      @id @default(autoincrement())
-  payment    Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  paymentId  Int
-  filename   String   // original filename shown to the user
-  storedName String   // name on disk under /data/attachments
+  id         Int          @id @default(autoincrement())
+  entry      PaymentEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  entryId    Int
+  filename   String
+  storedName String
   mime       String
   size       Int
-  createdAt  DateTime @default(now())
+  createdAt  DateTime     @default(now())
 
-  @@index([paymentId])
+  @@index([entryId])
 }
 
 model Setting {
@@ -76,7 +85,14 @@ model Setting {
   value String
 }
 
-enum PaymentStatus {
+enum Frequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum EntryStatus {
   PAID
-  UNPAID
+  PARTIAL
 }

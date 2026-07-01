@@ -165,7 +165,7 @@ export default function HousesPage() {
               </Group>
               <Group justify="space-between" mt="md">
                 <Text size="sm" c="dimmed">
-                  {h.paymentCount ?? 0} payments
+                  {h.typeCount ?? 0} payment types
                 </Text>
                 <Button variant="light" size="xs" component={Link} to={`/houses/${h.id}`}>
                   Open

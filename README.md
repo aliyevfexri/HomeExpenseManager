@@ -7,11 +7,13 @@ machine or NAS**; everything is built and run inside containers.
 ## Features
 
 - **Houses** — add / edit / delete, each with an optional location.
-- **Monthly payments** — record a payment and tag it to **one or many months**. A single
-  check that covers Jan + Feb + Mar is entered once and split evenly across those months in
-  the statistics.
-- **Attachments** — upload receipts / checks (images, PDFs, …) on each payment.
-- **Categories & paid/unpaid status** for each payment.
+- **Payment types** — per house, create recurring bills (e.g. Electricity, Water, Rent),
+  each with a **frequency** (daily / weekly / monthly / yearly) and an optional **default
+  amount**.
+- **Period grid** — each type shows a grid of periods that adapts to its frequency. **One
+  click ticks a period paid** (using the default amount); open a period for a custom amount,
+  a **partially-paid** flag, a note, or attachments.
+- **Attachments** — upload receipts / checks (images, PDFs, …) on any period.
 - **Statistics** — monthly and yearly totals, per-house and combined, with charts.
 - **Users** — one admin (created on first run) who can add / edit / delete users and reset
   passwords. Two levels only: admin vs normal user.
