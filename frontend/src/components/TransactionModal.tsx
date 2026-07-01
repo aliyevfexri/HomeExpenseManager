@@ -12,12 +12,13 @@ import {
   Center,
   List,
 } from "@mantine/core";
-import { IconFile, IconCalendarStats } from "@tabler/icons-react";
+import { IconCalendarStats } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { modals } from "@mantine/modals";
 import { api, Frequency, Transaction } from "../api";
 import { useMoney } from "../context";
 import { formatPeriodLabel } from "../periods";
+import AttachmentList from "./AttachmentList";
 
 interface Props {
   opened: boolean;
@@ -176,16 +177,7 @@ export default function TransactionModal({
           {transaction.attachments.length > 0 && (
             <>
               <Divider label="Attachments" labelPosition="center" />
-              <Stack gap={4}>
-                {transaction.attachments.map((a) => (
-                  <Anchor key={a.id} href={api.attachmentUrl(a.id)} target="_blank" size="sm">
-                    <Group gap={6}>
-                      <IconFile size={14} />
-                      {a.filename}
-                    </Group>
-                  </Anchor>
-                ))}
-              </Stack>
+              <AttachmentList attachments={transaction.attachments} />
             </>
           )}
 

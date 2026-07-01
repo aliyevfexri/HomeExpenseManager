@@ -201,9 +201,9 @@ export default function PaymentTypeSection({ type, onEditType, onDeleted, onData
           )}
           {needsMonthNav(type.frequency) && (
             <Select
-              w={130}
+              w={160}
               size="xs"
-              data={MONTHS.map((m, i) => ({ value: String(i + 1), label: m }))}
+              data={MONTHS.map((m, i) => ({ value: String(i + 1), label: `${i + 1}  ${m}` }))}
               value={String(month)}
               onChange={(v) => v && setMonth(Number(v))}
               allowDeselect={false}
@@ -259,7 +259,12 @@ export default function PaymentTypeSection({ type, onEditType, onDeleted, onData
                         : undefined,
                     }}
                   >
-                    <Group justify="center" gap={4}>
+                    <Group justify="center" gap={6} wrap="nowrap">
+                      {c.number != null && (
+                        <Badge size="xs" circle variant="outline" color="gray">
+                          {c.number}
+                        </Badge>
+                      )}
                       <Text size="sm" fw={500}>
                         {c.label}
                       </Text>

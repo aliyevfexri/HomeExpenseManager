@@ -6,6 +6,7 @@ export interface PeriodCell {
   dateISO: string; // period start, sent as periodDate
   label: string; // short label shown in the cell
   sublabel?: string; // secondary text (e.g. date range / year)
+  number?: number; // calendar month number 1-12, only set for MONTHLY
 }
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -28,6 +29,7 @@ export function generatePeriods(
       dateISO: new Date(Date.UTC(year, i, 1)).toISOString(),
       label: m.slice(0, 3),
       sublabel: String(year),
+      number: i + 1,
     }));
   }
 

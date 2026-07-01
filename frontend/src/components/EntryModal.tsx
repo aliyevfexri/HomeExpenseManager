@@ -9,15 +9,13 @@ import {
   Stack,
   Text,
   Divider,
-  Anchor,
-  ActionIcon,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
-import { IconFile, IconTrash } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { api, EntryStatus, PaymentEntry, PaymentType } from "../api";
 import { PeriodCell } from "../periods";
 import AttachmentPicker from "./AttachmentPicker";
+import AttachmentList from "./AttachmentList";
 
 interface Props {
   opened: boolean;
@@ -166,23 +164,7 @@ export default function EntryModal({
 
         <Divider label="Attachments" labelPosition="center" />
 
-        {entry && entry.attachments.length > 0 && (
-          <Stack gap={4}>
-            {entry.attachments.map((a) => (
-              <Group key={a.id} justify="space-between">
-                <Anchor href={api.attachmentUrl(a.id)} target="_blank" size="sm">
-                  <Group gap={6}>
-                    <IconFile size={14} />
-                    {a.filename}
-                  </Group>
-                </Anchor>
-                <ActionIcon color="red" variant="subtle" onClick={() => removeAttachment(a.id)}>
-                  <IconTrash size={16} />
-                </ActionIcon>
-              </Group>
-            ))}
-          </Stack>
-        )}
+        {entry && <AttachmentList attachments={entry.attachments} onDelete={removeAttachment} />}
 
         <AttachmentPicker
           label={entry ? "Add more files" : "Attach receipt / check (optional)"}

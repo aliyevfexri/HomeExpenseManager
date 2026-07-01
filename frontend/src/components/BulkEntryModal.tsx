@@ -12,7 +12,6 @@ import {
   Textarea,
   Divider,
   Anchor,
-  Badge,
 } from "@mantine/core";
 import { DateInput } from "@mantine/dates";
 import { notifications } from "@mantine/notifications";
@@ -122,9 +121,9 @@ export default function BulkEntryModal({
           )}
           {needsMonthNav(type.frequency) && (
             <Select
-              w={140}
+              w={170}
               label="Month"
-              data={MONTHS.map((m, i) => ({ value: String(i + 1), label: m }))}
+              data={MONTHS.map((m, i) => ({ value: String(i + 1), label: `${i + 1}  ${m}` }))}
               value={String(month)}
               onChange={(v) => v && setMonth(Number(v))}
               allowDeselect={false}
@@ -148,26 +147,18 @@ export default function BulkEntryModal({
           </Group>
           <Chip.Group multiple value={selected} onChange={setSelected}>
             <Group gap="xs">
-              {cells.map((c) => {
-                const order = selected.indexOf(c.key);
-                return (
-                  <div key={c.key} style={{ position: "relative" }}>
-                    <Chip value={c.key} size="sm">
-                      {c.label}
-                    </Chip>
-                    {order !== -1 && (
-                      <Badge
-                        size="xs"
-                        circle
-                        color="blue"
-                        style={{ position: "absolute", top: -6, right: -6, pointerEvents: "none" }}
-                      >
-                        {order + 1}
-                      </Badge>
+              {cells.map((c) => (
+                <Chip key={c.key} value={c.key} size="sm">
+                  <Group gap={6} wrap="nowrap">
+                    {c.number != null && (
+                      <Text span size="xs" fw={700} c="dimmed">
+                        {c.number}
+                      </Text>
                     )}
-                  </div>
-                );
-              })}
+                    <span>{c.label}</span>
+                  </Group>
+                </Chip>
+              ))}
             </Group>
           </Chip.Group>
         </div>
