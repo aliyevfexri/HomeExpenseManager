@@ -35,7 +35,7 @@ services:
   app:
     # Published image (built by your GitHub Action). The GHCR package must be
     # set to PUBLIC for TrueNAS to pull it without a login (see README / steps).
-    image: ghcr.io/aliyevfexri/home-expense-manager:latest
+    image: ghcr.io/garagezero/home-expense-manager:latest
     pull_policy: always
     restart: unless-stopped
     depends_on:
